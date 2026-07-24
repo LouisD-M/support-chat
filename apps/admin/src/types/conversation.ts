@@ -4,23 +4,40 @@ export type ConversationStatus =
   | "WAITING_USER"
   | "CLOSED";
 
-export type MessageSender = "CLIENT" | "TECHNICIAN" | "SYSTEM";
+export type SenderType =
+  | "CLIENT"
+  | "TECHNICIAN"
+  | "SYSTEM";
+
+export type Device = {
+  id: string;
+  installationId: string;
+  computerName: string;
+  domain: string | null;
+  lastWindowsUser: string | null;
+  lastSeenAt: string;
+};
 
 export type Message = {
   id: string;
-  senderType: MessageSender;
+  clientMessageId: string | null;
+  senderType: SenderType;
   senderLabel: string;
   content: string;
   createdAt: string;
+  readAt: string | null;
 };
 
 export type Conversation = {
   id: string;
-  username: string;
-  computerName: string;
-  subject: string;
+  subject: string | null;
   status: ConversationStatus;
-  unreadCount: number;
-  lastMessageAt: string;
+  openedByUsername: string;
+  deviceId: string;
+  device: Device;
   messages: Message[];
+  createdAt: string;
+  updatedAt: string;
+  closedAt: string | null;
+  glpiTicketId?: string | null;
 };
