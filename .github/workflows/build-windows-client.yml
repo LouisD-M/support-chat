@@ -43,5 +43,7 @@ jobs:
           NEXT_PUBLIC_API_URL: http://192.168.15.40:7000
         with:
           projectPath: apps/client
+          args: --no-bundle
+          uploadPlainBinary: true
           uploadWorkflowArtifacts: true
-          workflowArtifactNamePattern: support-chat-windows-[bundle]
+          workflowArtifactNamePattern: support-chat-portable-[arch]-[bundle]
