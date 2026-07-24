@@ -1,0 +1,70 @@
+generator client {
+  provider               = "prisma-client"
+  output                 = "../src/generated/prisma"
+  runtime                = "nodejs"
+  moduleFormat           = "cjs"
+  generatedFileExtension = "ts"
+  importFileExtension    = ""
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum ConversationStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_USER
+  CLOSED
+}
+
+enum SenderType {
+  CLIENT
+  TECHNICIAN
+  SYSTEM
+}
+
+model Device {
+  id              String         @id @default(cuid())
+  installationId  String         @unique
+  computerName    String
+  domain           String?
+  lastWindowsUser String?
+  lastSeenAt      DateTime       @default(now())
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  conversations   Conversation[]
+}
+
+model Conversation {
+  id               String             @id @default(cuid())
+  subject          String?
+  status           ConversationStatus @default(OPEN)
+  openedByUsername String
+  glpiTicketId     String?
+
+  deviceId         String
+  device           Device             @relation(fields: [deviceId], references: [id])
+
+  messages         Message[]
+
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  closedAt         DateTime?
+}
+
+model Message {
+  id               String       @id @default(cuid())
+  clientMessageId  String?      @unique
+
+  conversationId   String
+  conversation     Conversation @relation(fields: [conversationId], references: [id])
+
+  senderType       SenderType
+  senderLabel      String
+  content          String
+
+  createdAt        DateTime     @default(now())
+  readAt           DateTime?
+}

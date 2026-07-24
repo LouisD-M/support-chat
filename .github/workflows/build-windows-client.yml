@@ -1,0 +1,47 @@
+﻿name: Build Windows Client
+
+on:
+  workflow_dispatch:
+
+  push:
+    branches:
+      - main
+
+    paths:
+      - "apps/client/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/build-windows-client.yml"
+
+jobs:
+  build-windows:
+    name: Build Tauri Windows
+    runs-on: windows-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Télécharger le dépôt
+        uses: actions/checkout@v4
+
+      - name: Installer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Installer Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Compiler l'application Tauri
+        uses: tauri-apps/tauri-action@v1
+        env:
+          NEXT_PUBLIC_API_URL: http://192.168.15.40:7000
+        with:
+          projectPath: apps/client
+          uploadWorkflowArtifacts: true
+          workflowArtifactNamePattern: support-chat-windows-[bundle]
