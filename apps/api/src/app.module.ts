@@ -9,6 +9,8 @@ import { GlpiModule } from "./glpi/glpi.module";
 import { MessagesModule } from "./messages/messages.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { RealtimeModule } from "./realtime/realtime.module";
+import { AuthModule } from "./auth/auth.module";
+
 
 @Module({
   imports: [
@@ -22,6 +24,7 @@ import { RealtimeModule } from "./realtime/realtime.module";
     }),
 
     PrismaModule,
+    AuthModule,
     GlpiModule,
     ConversationsModule,
     DevicesModule,

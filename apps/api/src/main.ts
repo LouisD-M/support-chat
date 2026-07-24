@@ -1,10 +1,14 @@
 import { ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
+import cookieParser from "cookie-parser";
 
 import { AppModule } from "./app.module";
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app =
+    await NestFactory.create(AppModule);
+
+  app.use(cookieParser());
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -13,20 +17,24 @@ async function bootstrap() {
     }),
   );
 
-app.enableCors({
-  origin: [
-    "http://localhost:7001",
-    "http://localhost:7002",
-    "http://192.168.15.40:7001",
-    "http://192.168.15.40:7002",
+  app.enableCors({
+    origin: [
+      "http://localhost:7001",
+      "http://localhost:7002",
+      "http://192.168.15.40:7001",
+      "http://192.168.15.40:7002",
 
-    // Application Tauri compilée sous Windows
-    "http://tauri.localhost",
-    "https://tauri.localhost",
-  ],
-});
+      // Application Tauri compilée sous Windows
+      "http://tauri.localhost",
+      "https://tauri.localhost",
+    ],
 
-  const port = Number(process.env.PORT ?? 7000);
+    credentials: true,
+  });
+
+  const port = Number(
+    process.env.PORT ?? 7000,
+  );
 
   await app.listen(port, "0.0.0.0");
 
