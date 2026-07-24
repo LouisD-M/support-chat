@@ -138,3 +138,47 @@ support-chat/
 │
 ├── package.json
 └── README.md
+
+┌───────────────────────────────┐
+│ Client utilisateur            │
+│ Next.js / React / Tauri       │
+│                               │
+│ - Envoi de messages           │
+│ - Identification du poste     │
+│ - Suivi de la conversation    │
+└───────────────┬───────────────┘
+                │
+                │ HTTP / JSON
+                ▼
+┌───────────────────────────────┐
+│ API NestJS                    │
+│                               │
+│ - Authentification            │
+│ - Autorisations               │
+│ - Logique métier              │
+│ - Gestion des conversations   │
+│ - Gestion des équipements     │
+│ - Intégration GLPI            │
+└───────┬─────────────────┬─────┘
+        │                 │
+        ▼                 ▼
+┌───────────────┐   ┌───────────────┐
+│ Prisma        │   │ API GLPI      │
+│ SQLite        │   │ Création      │
+│               │   │ de tickets    │
+└───────────────┘   └───────────────┘
+        ▲
+        │
+        │ HTTP sécurisé
+        │
+┌───────┴───────────────────────┐
+│ Interface d’administration    │
+│ Next.js / React               │
+│                               │
+│ - Consultation                │
+│ - Réponse technicien          │
+│ - Gestion des statuts         │
+│ - Création de tickets GLPI    │
+└───────────────────────────────┘
+
+
