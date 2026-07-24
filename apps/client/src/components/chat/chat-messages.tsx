@@ -15,7 +15,7 @@ export function ChatMessages({
   messagesEndRef,
 }: ChatMessagesProps) {
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 px-4 py-6 sm:px-6">
+    <div className="min-h-0 flex-1 overflow-y-auto bg-blue-50 px-4 py-6 sm:px-6">
       <div className="mx-auto flex max-w-2xl flex-col gap-4">
         <div className="flex justify-center">
           <span className="rounded-full bg-white px-3 py-1 text-xs text-slate-400 shadow-sm ring-1 ring-slate-200">

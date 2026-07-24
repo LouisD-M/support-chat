@@ -65,7 +65,7 @@ export function ChatPage() {
     conversation.status === "CLOSED";
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-100 p-0 sm:p-6">
+    <main className="flex min-h-screen items-center justify-center bg-white-100 p-0 sm:p-6">
       <section className="flex h-screen w-full flex-col overflow-hidden bg-white shadow-xl sm:h-[min(850px,calc(100vh-3rem))] sm:max-w-3xl sm:rounded-3xl sm:ring-1 sm:ring-slate-200">
         <ChatHeader
           conversation={conversation}
