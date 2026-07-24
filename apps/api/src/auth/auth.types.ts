@@ -1,8 +1,10 @@
+export type AdminRole =
+  | "ADMIN"
+  | "TECHNICIAN";
+
 export type JwtPayload = {
   sub: string;
   username: string;
   displayName: string;
-  role: "ADMIN" | "TECHNICIAN";
+  role: AdminRole;
 };
-
-export type AuthenticatedUser = JwtPayload;

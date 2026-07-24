@@ -18,23 +18,19 @@ export function sendTechnicianMessage(
   conversationId: string,
   content: string,
 ): Promise<Message> {
-  return requestJson<Message>(
-    `/conversations/${conversationId}/messages`,
-    {
-      method: "POST",
-      body: JSON.stringify({
-        clientMessageId:
-          generateUuid(),
+return requestJson<Message>(
+  `/conversations/${conversationId}/messages/technician`,
+  {
+    method: "POST",
 
-        senderType: "TECHNICIAN",
+    body: JSON.stringify({
+      clientMessageId:
+        generateUuid(),
 
-        senderLabel:
-          "Support informatique",
-
-        content,
-      }),
-    },
-  );
+      content,
+    }),
+  },
+);
 }
 
 export function updateConversationStatus(

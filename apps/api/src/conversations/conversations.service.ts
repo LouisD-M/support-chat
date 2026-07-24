@@ -1,12 +1,32 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
 
+import type {
+  JwtPayload,
+} from "../auth/auth.types";
+
 import { GlpiService } from "../glpi/glpi.service";
 import { PrismaService } from "../prisma/prisma.service";
-import { CreateConversationDto } from "./dto/create-conversation.dto";
+
+import {
+  CreateClientMessageDto,
+} from "./dto/create-client-message.dto";
+
+import {
+  CreateConversationDto,
+} from "./dto/create-conversation.dto";
+
+import {
+  CreateTechnicianMessageDto,
+} from "./dto/create-technician-message.dto";
+
+import type {
+  ConversationStatusValue,
+} from "./dto/update-conversation-status.dto";
 
 @Injectable()
 export class ConversationsService {
@@ -15,6 +35,96 @@ export class ConversationsService {
     private readonly glpiService: GlpiService,
   ) {}
   
+async createClientMessage(
+  conversationId: string,
+  dto: CreateClientMessageDto,
+) {
+  const conversation =
+    await this.findOne(conversationId);
+
+  if (conversation.status === "CLOSED") {
+    throw new BadRequestException(
+      "Cette conversation est fermée.",
+    );
+  }
+
+  const message =
+    await this.prisma.message.create({
+      data: {
+        conversationId,
+
+        clientMessageId:
+          dto.clientMessageId,
+
+        senderType: "CLIENT",
+
+        senderLabel:
+          conversation.openedByUsername,
+
+        content:
+          dto.content.trim(),
+      },
+    });
+
+  await this.prisma.conversation.update({
+    where: {
+      id: conversationId,
+    },
+
+    data: {
+      updatedAt: new Date(),
+    },
+  });
+
+  return message;
+}
+
+async createTechnicianMessage(
+  conversationId: string,
+  dto: CreateTechnicianMessageDto,
+  user: JwtPayload,
+) {
+  const conversation =
+    await this.findOne(conversationId);
+
+  if (conversation.status === "CLOSED") {
+    throw new BadRequestException(
+      "Cette conversation est fermée.",
+    );
+  }
+
+  const message =
+    await this.prisma.message.create({
+      data: {
+        conversationId,
+
+        clientMessageId:
+          dto.clientMessageId,
+
+        senderType: "TECHNICIAN",
+
+        senderLabel:
+          user.displayName,
+
+        content:
+          dto.content.trim(),
+      },
+    });
+
+  await this.prisma.conversation.update({
+    where: {
+      id: conversationId,
+    },
+
+    data: {
+      status: "IN_PROGRESS",
+      updatedAt: new Date(),
+    },
+  });
+
+  return message;
+}
+
   async findAll() {
     return this.prisma.conversation.findMany({
       include: {
@@ -96,6 +206,58 @@ export class ConversationsService {
     });
   }
 
+
+async updateStatus(
+  conversationId: string,
+  status: ConversationStatusValue,
+) {
+  const conversation =
+    await this.prisma.conversation.findUnique({
+      where: {
+        id: conversationId,
+      },
+    });
+
+  if (!conversation) {
+    throw new NotFoundException(
+      "Conversation introuvable.",
+    );
+  }
+
+  if (
+    conversation.status === "CLOSED" &&
+    status !== "CLOSED"
+  ) {
+    throw new BadRequestException(
+      "Une conversation fermée ne peut pas être rouverte.",
+    );
+  }
+
+  return this.prisma.conversation.update({
+    where: {
+      id: conversationId,
+    },
+
+    data: {
+      status,
+
+      closedAt:
+        status === "CLOSED"
+          ? new Date()
+          : null,
+    },
+
+    include: {
+      device: true,
+
+      messages: {
+        orderBy: {
+          createdAt: "asc",
+        },
+      },
+    },
+  });
+}
 
 async remove(id: string) {
   const conversation =
@@ -212,32 +374,61 @@ async createGlpiTicket(
       name: `[Support Chat] ${subject}`,
       content: ticketContent,
     });
+const ticketId =
+  String(glpiTicket.id);
 
-  const updatedConversation =
-    await this.prisma.conversation.update({
+const [, updatedConversation] =
+  await this.prisma.$transaction([
+    this.prisma.message.create({
+      data: {
+        conversationId:
+          conversation.id,
+
+        senderType:
+          "SYSTEM",
+
+        senderLabel:
+          "Support Chat",
+
+        content:
+          `Le ticket GLPI n°${ticketId} a été créé. La conversation est maintenant fermée.`,
+      },
+    }),
+
+    this.prisma.conversation.update({
       where: {
         id: conversation.id,
       },
+
       data: {
         glpiTicketId:
-          String(glpiTicket.id),
+          ticketId,
+
+        status:
+          "CLOSED",
+
+        closedAt:
+          new Date(),
       },
+
       include: {
         device: true,
+
         messages: {
           orderBy: {
             createdAt: "asc",
           },
         },
       },
-    });
+    }),
+  ]);
 
-  return {
-    success: true,
-    glpiTicketId:
-      String(glpiTicket.id),
-    conversation:
-      updatedConversation,
-  };
+return {
+  success: true,
+  glpiTicketId:
+    ticketId,
+  conversation:
+    updatedConversation,
+};
 }
 }

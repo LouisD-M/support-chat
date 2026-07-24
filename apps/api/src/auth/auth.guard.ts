@@ -4,11 +4,15 @@ import {
   Injectable,
   UnauthorizedException,
 } from "@nestjs/common";
+
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
+
 import type { Request } from "express";
 
-import type { JwtPayload } from "./auth.types";
+import type {
+  JwtPayload,
+} from "./auth.types";
 
 type AuthenticatedRequest = Request & {
   user?: JwtPayload;
@@ -54,13 +58,15 @@ export class AuthGuard
     }
 
     try {
-      request.user =
+      const payload =
         await this.jwtService.verifyAsync<JwtPayload>(
           token,
           {
             secret,
           },
         );
+
+      request.user = payload;
 
       return true;
     } catch {

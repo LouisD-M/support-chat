@@ -7,6 +7,7 @@ import { PrismaModule } from "../prisma/prisma.module";
 import { AuthController } from "./auth.controller";
 import { AuthGuard } from "./auth.guard";
 import { AuthService } from "./auth.service";
+import { RolesGuard } from "./guards/roles.guard";
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { AuthService } from "./auth.service";
 
         return {
           secret,
+
           signOptions: {
             expiresIn: "8h",
           },
@@ -48,10 +50,12 @@ import { AuthService } from "./auth.service";
   providers: [
     AuthService,
     AuthGuard,
+    RolesGuard,
   ],
 
   exports: [
     AuthGuard,
+    RolesGuard,
     JwtModule,
   ],
 })
