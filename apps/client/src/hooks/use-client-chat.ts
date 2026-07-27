@@ -1,18 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useState,
+} from "react";
 
 import type {
   Conversation,
   Message,
 } from "@/types/conversation";
 
-import { ApiError } from "@/lib/api-client";
+import {
+  ApiError,
+} from "@/lib/api-client";
+
 import {
   createConversation,
   fetchConversation,
+  registerDevice,
   sendClientMessage,
 } from "@/lib/conversations-api";
+
+import {
+  getDeviceIdentity,
+} from "@/lib/device-identity";
 
 import {
   getStoredConversationId,
@@ -24,25 +35,60 @@ let bootstrapPromise:
   Promise<Conversation> | null = null;
 
 export function useClientChat() {
-  const [conversation, setConversation] =
-    useState<Conversation | null>(null);
+  const [
+    conversation,
+    setConversation,
+  ] =
+    useState<Conversation | null>(
+      null,
+    );
 
-  const [draft, setDraft] =
+  const [
+    draft,
+    setDraft,
+  ] =
     useState("");
 
-  const [isLoading, setIsLoading] =
+  const [
+    isLoading,
+    setIsLoading,
+  ] =
     useState(true);
 
-  const [isSending, setIsSending] =
+  const [
+    isSending,
+    setIsSending,
+  ] =
     useState(false);
 
-  const [error, setError] =
+  const [
+    error,
+    setError,
+  ] =
     useState<string | null>(null);
 
   useEffect(() => {
     let isCancelled = false;
 
     async function getOrCreateConversation() {
+      const identity =
+        await getDeviceIdentity();
+
+      console.log(
+        "Identité récupérée :",
+        identity,
+      );
+
+      const device =
+        await registerDevice(
+          identity,
+        );
+
+      console.log(
+        "Device enregistré :",
+        device,
+      );
+
       const storedConversationId =
         getStoredConversationId();
 
@@ -53,7 +99,8 @@ export function useClientChat() {
           );
         } catch (fetchError) {
           if (
-            fetchError instanceof ApiError &&
+            fetchError instanceof
+              ApiError &&
             fetchError.status === 404
           ) {
             removeStoredConversationId();
@@ -64,7 +111,11 @@ export function useClientChat() {
       }
 
       const createdConversation =
-        await createConversation();
+        await createConversation(
+          device.id,
+          identity.lastWindowsUser ??
+            "Utilisateur",
+        );
 
       storeConversationId(
         createdConversation.id,
@@ -89,13 +140,22 @@ export function useClientChat() {
             loadedConversation,
           );
         }
-      } catch (initializationError) {
+      } catch (
+        initializationError
+      ) {
         bootstrapPromise = null;
+
+        console.error(
+          "Erreur initialisation :",
+          initializationError,
+        );
 
         if (!isCancelled) {
           setError(
-            initializationError instanceof Error
-              ? initializationError.message
+            initializationError
+              instanceof Error
+              ? initializationError
+                  .message
               : "Impossible d’ouvrir la conversation.",
           );
         }
@@ -138,8 +198,8 @@ export function useClientChat() {
             },
           )
           .catch(() => {
-            // Une erreur temporaire de polling
-            // ne masque pas immédiatement le chat.
+            // Une erreur temporaire
+            // de polling ne masque pas le chat.
           });
       }, 2500);
 
@@ -189,7 +249,8 @@ export function useClientChat() {
       return message;
     } catch (sendingError) {
       setError(
-        sendingError instanceof Error
+        sendingError
+          instanceof Error
           ? sendingError.message
           : "Le message n’a pas pu être envoyé.",
       );
