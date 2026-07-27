@@ -125,8 +125,15 @@ fn get_device_identity() -> DeviceIdentity {
     mobile,
     tauri::mobile_entry_point
 )]
+#[cfg_attr(
+    mobile,
+    tauri::mobile_entry_point
+)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(
+            tauri_plugin_notification::init(),
+        )
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
