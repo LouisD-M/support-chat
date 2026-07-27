@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -142,6 +143,11 @@ export function useConversations({
       }
     }, []);
 
+    const receivedMessageIdsRef =
+  useRef<Set<string>>(
+    new Set(),
+  );
+
   useEffect(() => {
     if (!enabled) {
       return;
@@ -212,78 +218,90 @@ export function useConversations({
       );
     }
 
-    function handleMessageCreated(
-      message: Message,
-    ): void {
-      setConversations(
-        (currentConversations) =>
-          sortConversations(
-            currentConversations.map(
-              (conversation) => {
-                if (
-                  conversation.id !==
-                  message.conversationId
-                ) {
-                  return conversation;
-                }
+function handleMessageCreated(
+  message: Message,
+): void {
+  if (
+    receivedMessageIdsRef.current.has(
+      message.id,
+    )
+  ) {
+    return;
+  }
 
-                const messageAlreadyExists =
-                  conversation.messages.some(
-                    (currentMessage) =>
-                      currentMessage.id ===
-                      message.id,
-                  );
+  receivedMessageIdsRef.current.add(
+    message.id,
+  );
 
-                if (messageAlreadyExists) {
-                  return conversation;
-                }
+  setConversations(
+    (currentConversations) =>
+      sortConversations(
+        currentConversations.map(
+          (conversation) => {
+            if (
+              conversation.id !==
+              message.conversationId
+            ) {
+              return conversation;
+            }
 
-                return {
-                  ...conversation,
+            const messageAlreadyExists =
+              conversation.messages.some(
+                (currentMessage) =>
+                  currentMessage.id ===
+                  message.id,
+              );
 
-                  updatedAt:
-                    message.createdAt,
+            if (messageAlreadyExists) {
+              return conversation;
+            }
 
-                  messages: [
-                    ...conversation.messages,
-                    message,
-                  ],
-                };
-              },
-            ),
-          ),
-      );
+            return {
+              ...conversation,
+              updatedAt:
+                message.createdAt,
+              messages: [
+                ...conversation.messages,
+                message,
+              ],
+            };
+          },
+        ),
+      ),
+  );
 
+  if (
+    message.senderType !== "CLIENT"
+  ) {
+    return;
+  }
+
+  playNotificationSound();
+
+  setSelectedConversationId(
+    (currentSelectedId) => {
       if (
-        message.senderType !== "CLIENT"
+        currentSelectedId ===
+        message.conversationId
       ) {
-        return;
+        return currentSelectedId;
       }
 
-        setSelectedConversationId(
-        (currentSelectedId) => {
-          if (
-            currentSelectedId ===
-            message.conversationId
-          ) {
-            return currentSelectedId;
-          }
+      setUnreadByConversation(
+        (currentUnread) => ({
+          ...currentUnread,
 
-          setUnreadByConversation(
-            (currentUnread) => ({
-              ...currentUnread,
-
-              [message.conversationId]:
-                (currentUnread[
-                  message.conversationId
-                ] ?? 0) + 1,
-            }),
-          );
-
-          return currentSelectedId;
-        },
+          [message.conversationId]:
+            (currentUnread[
+              message.conversationId
+            ] ?? 0) + 1,
+        }),
       );
-    }
+
+      return currentSelectedId;
+    },
+  );
+}
 
     function handleConversationUpdated(
       conversation: Conversation,
@@ -502,6 +520,24 @@ const selectConversation =
       );
     }
   }
+
+function playNotificationSound() {
+  const audio =
+    new Audio(
+      "/sounds/notification.mp3",
+    );
+
+  audio.volume = 0.5;
+
+  void audio.play().catch(
+    (error) => {
+      console.warn(
+        "Lecture du son bloquée :",
+        error,
+      );
+    },
+  );
+}
 
   async function deleteConversation(
     conversationId: string,

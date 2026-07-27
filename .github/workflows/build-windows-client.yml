@@ -1,49 +1,49 @@
-﻿name: Build Windows Client
+﻿name: Publish Support Chat Desktop
 
 on:
   workflow_dispatch:
 
-  push:
-    branches:
-      - main
-
-    paths:
-      - "apps/client/**"
-      - "package.json"
-      - "package-lock.json"
-      - ".github/workflows/build-windows-client.yml"
-
 jobs:
-  build-windows:
-    name: Build Tauri Windows
+  publish-client:
     runs-on: windows-latest
 
     permissions:
-      contents: read
+      contents: write
 
     steps:
-      - name: Télécharger le dépôt
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Installer Node.js
+      - name: Install Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
-          cache: "npm"
+          node-version: 22
+          cache: npm
 
-      - name: Installer Rust
+      - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Installer les dépendances
+      - name: Install dependencies
         run: npm ci
 
-      - name: Compiler l'application Tauri
+      - name: Build and publish desktop application
         uses: tauri-apps/tauri-action@v1
         env:
-          NEXT_PUBLIC_API_URL: http://192.168.15.40:7000
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
         with:
           projectPath: apps/client
-          args: --no-bundle
+
+          tagName: support-chat-v__VERSION__
+          releaseName: "Support Chat v__VERSION__"
+
+          releaseBody: |
+            Version portable de Support Chat.
+
+            Téléchargez le fichier app.exe et lancez-le directement.
+            Aucune installation n’est nécessaire.
+
+          releaseDraft: false
+          prerelease: false
+
           uploadPlainBinary: true
-          uploadWorkflowArtifacts: true
-          workflowArtifactNamePattern: support-chat-portable-[arch]-[bundle]
