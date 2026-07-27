@@ -16,18 +16,27 @@ export type Device = {
   domain: string | null;
   lastWindowsUser: string | null;
   lastSeenAt: string;
+
+  osName: string | null;
+  osVersion: string | null;
+  ipAddress: string | null;
+  manufacturer: string | null;
+  model: string | null;
+  serialNumber: string | null;
 };
 
 export type Message = {
   id: string;
-  clientMessageId: string | null;
-  senderType: SenderType;
+  conversationId: string;
+  clientMessageId: string;
+  senderType:
+    | "CLIENT"
+    | "TECHNICIAN"
+    | "SYSTEM";
   senderLabel: string;
   content: string;
   createdAt: string;
-  readAt: string | null;
 };
-
 export type Conversation = {
   id: string;
   subject: string | null;

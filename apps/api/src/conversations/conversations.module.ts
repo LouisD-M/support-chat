@@ -13,13 +13,19 @@ import {
   ConversationsService,
 } from "./conversations.service";
 
+import {
+  ConversationsGateway,
+} from "./conversations.gateway";
+
 @Module({
   imports: [
     PrismaModule,
     MessagesModule,
     GlpiModule,
     AuthModule,
+    
   ],
+  
 
   controllers: [
     ConversationsController,
@@ -27,6 +33,7 @@ import {
 
   providers: [
     ConversationsService,
+    ConversationsGateway,
   ],
 
   exports: [

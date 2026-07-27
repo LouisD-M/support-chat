@@ -5,6 +5,10 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 
+import {
+  ConversationsGateway,
+} from "./conversations.gateway";
+
 import type {
   JwtPayload,
 } from "../auth/auth.types";
@@ -33,6 +37,7 @@ export class ConversationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly glpiService: GlpiService,
+    private readonly conversationsGateway: ConversationsGateway,
   ) {}
   
 async createClientMessage(
@@ -40,23 +45,31 @@ async createClientMessage(
   dto: CreateClientMessageDto,
 ) {
   const conversation =
-    await this.findOne(conversationId);
+    await this.findOne(
+      conversationId,
+    );
 
-  if (conversation.status === "CLOSED") {
+  if (
+    conversation.status === "CLOSED"
+  ) {
     throw new BadRequestException(
       "Cette conversation est fermée.",
     );
   }
 
-  const message =
-    await this.prisma.message.create({
+  const [
+    message,
+    updatedConversation,
+  ] = await this.prisma.$transaction([
+    this.prisma.message.create({
       data: {
         conversationId,
 
         clientMessageId:
           dto.clientMessageId,
 
-        senderType: "CLIENT",
+        senderType:
+          "CLIENT",
 
         senderLabel:
           conversation.openedByUsername,
@@ -64,17 +77,40 @@ async createClientMessage(
         content:
           dto.content.trim(),
       },
+    }),
+
+    this.prisma.conversation.update({
+      where: {
+        id: conversationId,
+      },
+
+      data: {
+        updatedAt:
+          new Date(),
+      },
+
+      include: {
+        device: true,
+
+        messages: {
+          orderBy: {
+            createdAt: "asc",
+          },
+        },
+      },
+    }),
+  ]);
+
+  this.conversationsGateway
+    .emitMessageCreated({
+      ...message,
+      conversationId,
     });
 
-  await this.prisma.conversation.update({
-    where: {
-      id: conversationId,
-    },
-
-    data: {
-      updatedAt: new Date(),
-    },
-  });
+  this.conversationsGateway
+    .emitConversationUpdated(
+      updatedConversation,
+    );
 
   return message;
 }
@@ -85,23 +121,31 @@ async createTechnicianMessage(
   user: JwtPayload,
 ) {
   const conversation =
-    await this.findOne(conversationId);
+    await this.findOne(
+      conversationId,
+    );
 
-  if (conversation.status === "CLOSED") {
+  if (
+    conversation.status === "CLOSED"
+  ) {
     throw new BadRequestException(
       "Cette conversation est fermée.",
     );
   }
 
-  const message =
-    await this.prisma.message.create({
+  const [
+    message,
+    updatedConversation,
+  ] = await this.prisma.$transaction([
+    this.prisma.message.create({
       data: {
         conversationId,
 
         clientMessageId:
           dto.clientMessageId,
 
-        senderType: "TECHNICIAN",
+        senderType:
+          "TECHNICIAN",
 
         senderLabel:
           user.displayName,
@@ -109,18 +153,43 @@ async createTechnicianMessage(
         content:
           dto.content.trim(),
       },
+    }),
+
+    this.prisma.conversation.update({
+      where: {
+        id: conversationId,
+      },
+
+      data: {
+        status:
+          "IN_PROGRESS",
+
+        updatedAt:
+          new Date(),
+      },
+
+      include: {
+        device: true,
+
+        messages: {
+          orderBy: {
+            createdAt: "asc",
+          },
+        },
+      },
+    }),
+  ]);
+
+  this.conversationsGateway
+    .emitMessageCreated({
+      ...message,
+      conversationId,
     });
 
-  await this.prisma.conversation.update({
-    where: {
-      id: conversationId,
-    },
-
-    data: {
-      status: "IN_PROGRESS",
-      updatedAt: new Date(),
-    },
-  });
+  this.conversationsGateway
+    .emitConversationUpdated(
+      updatedConversation,
+    );
 
   return message;
 }
@@ -170,8 +239,11 @@ async createTechnicianMessage(
     return conversation;
   }
 
-  async create(dto: CreateConversationDto) {
-    const device = await this.prisma.device.findUnique({
+async create(
+  dto: CreateConversationDto,
+) {
+  const device =
+    await this.prisma.device.findUnique({
       where: {
         id: dto.deviceId,
       },
@@ -181,17 +253,23 @@ async createTechnicianMessage(
       },
     });
 
-    if (!device) {
-      throw new NotFoundException(
-        "Le poste informatique est introuvable.",
-      );
-    }
+  if (!device) {
+    throw new NotFoundException(
+      "Le poste informatique est introuvable.",
+    );
+  }
 
-    return this.prisma.conversation.create({
+  const conversation =
+    await this.prisma.conversation.create({
       data: {
-        subject: dto.subject ?? null,
-        openedByUsername: dto.openedByUsername,
-        deviceId: dto.deviceId,
+        subject:
+          dto.subject ?? null,
+
+        openedByUsername:
+          dto.openedByUsername,
+
+        deviceId:
+          dto.deviceId,
       },
 
       include: {
@@ -204,7 +282,14 @@ async createTechnicianMessage(
         },
       },
     });
-  }
+
+  this.conversationsGateway
+    .emitConversationCreated(
+      conversation,
+    );
+
+  return conversation;
+}
 
 
 async updateStatus(
@@ -233,30 +318,38 @@ async updateStatus(
     );
   }
 
-  return this.prisma.conversation.update({
-    where: {
-      id: conversationId,
-    },
+  const updatedConversation =
+    await this.prisma.conversation.update({
+      where: {
+        id: conversationId,
+      },
 
-    data: {
-      status,
+      data: {
+        status,
 
-      closedAt:
-        status === "CLOSED"
-          ? new Date()
-          : null,
-    },
+        closedAt:
+          status === "CLOSED"
+            ? new Date()
+            : null,
+      },
 
-    include: {
-      device: true,
+      include: {
+        device: true,
 
-      messages: {
-        orderBy: {
-          createdAt: "asc",
+        messages: {
+          orderBy: {
+            createdAt: "asc",
+          },
         },
       },
-    },
-  });
+    });
+
+  this.conversationsGateway
+    .emitConversationUpdated(
+      updatedConversation,
+    );
+
+  return updatedConversation;
 }
 
 async remove(id: string) {
@@ -287,6 +380,9 @@ async remove(id: string) {
       },
     }),
   ]);
+
+  this.conversationsGateway
+    .emitConversationDeleted(id);
 
   return {
     success: true,
@@ -422,7 +518,10 @@ const [, updatedConversation] =
       },
     }),
   ]);
-
+this.conversationsGateway
+  .emitConversationUpdated(
+    updatedConversation,
+  );
 return {
   success: true,
   glpiTicketId:

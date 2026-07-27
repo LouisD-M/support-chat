@@ -24,9 +24,7 @@ export async function getDeviceIdentity():
     launcherInstallationId ??
     getInstallationId();
 
-  if (
-    launcherInstallationId
-  ) {
+  if (launcherInstallationId) {
     storeInstallationId(
       launcherInstallationId,
     );
@@ -45,12 +43,33 @@ export async function getDeviceIdentity():
 
     return {
       installationId,
+
       computerName:
         identity.computerName,
+
       domain:
         identity.domain,
+
       lastWindowsUser:
         identity.lastWindowsUser,
+
+      osName:
+        identity.osName,
+
+      osVersion:
+        identity.osVersion,
+
+      ipAddress:
+        identity.ipAddress,
+
+      manufacturer:
+        identity.manufacturer,
+
+      model:
+        identity.model,
+
+      serialNumber:
+        identity.serialNumber,
     };
   } catch {
     return {
@@ -72,6 +91,36 @@ export async function getDeviceIdentity():
           "lastWindowsUser",
         ) ??
         "Utilisateur web",
+
+      osName:
+        searchParams.get(
+          "osName",
+        ) || null,
+
+      osVersion:
+        searchParams.get(
+          "osVersion",
+        ) || null,
+
+      ipAddress:
+        searchParams.get(
+          "ipAddress",
+        ) || null,
+
+      manufacturer:
+        searchParams.get(
+          "manufacturer",
+        ) || null,
+
+      model:
+        searchParams.get(
+          "model",
+        ) || null,
+
+      serialNumber:
+        searchParams.get(
+          "serialNumber",
+        ) || null,
     };
   }
 }

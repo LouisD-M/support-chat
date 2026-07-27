@@ -1,7 +1,13 @@
-import { FormEvent, useState } from "react";
+import {
+  FormEvent,
+  useState,
+} from "react";
+
 import {
   CheckCircle2,
+  Cpu,
   Monitor,
+  Network,
   Send,
   TicketPlus,
   Trash2,
@@ -35,18 +41,27 @@ type ChatPanelProps = {
   ) => void;
 };
 
-const statusLabels: Record<ConversationStatus, string> = {
+const statusLabels: Record<
+  ConversationStatus,
+  string
+> = {
   OPEN: "Ouverte",
   IN_PROGRESS: "En cours",
-  WAITING_USER: "En attente utilisateur",
+  WAITING_USER:
+    "En attente utilisateur",
   CLOSED: "Fermée",
 };
 
-function formatTime(date: string): string {
-  return new Intl.DateTimeFormat("fr-FR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(date));
+function formatTime(
+  date: string,
+): string {
+  return new Intl.DateTimeFormat(
+    "fr-FR",
+    {
+      hour: "2-digit",
+      minute: "2-digit",
+    },
+  ).format(new Date(date));
 }
 
 export function ChatPanel({
@@ -56,7 +71,8 @@ export function ChatPanel({
   onCreateGlpiTicket,
   onDeleteConversation,
 }: ChatPanelProps) {
-  const [content, setContent] = useState("");
+  const [content, setContent] =
+    useState("");
 
   if (!conversation) {
     return (
@@ -71,29 +87,51 @@ export function ChatPanel({
           </h2>
 
           <p className="mt-2 text-sm leading-6 text-slate-500">
-            Choisissez une demande utilisateur dans la liste pour consulter
-            les messages et répondre.
+            Choisissez une demande
+            utilisateur dans la liste pour
+            consulter les messages et
+            répondre.
           </p>
         </div>
       </section>
     );
   }
-  const conversationId = conversation.id;
+
+  const conversationId =
+    conversation.id;
+
+  const device =
+    conversation.device;
+
+  const systemLabel = [
+    device.osName,
+    device.osVersion,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const hardwareLabel = [
+    device.manufacturer,
+    device.model,
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   function handleSubmit(
     event: FormEvent<HTMLFormElement>,
   ) {
     event.preventDefault();
 
-    const trimmedContent = content.trim();
+    const trimmedContent =
+      content.trim();
 
     if (!trimmedContent) {
       return;
     }
 
     onSendMessage(
-        conversationId,
-        trimmedContent,
+      conversationId,
+      trimmedContent,
     );
 
     setContent("");
@@ -101,96 +139,160 @@ export function ChatPanel({
 
   return (
     <section className="flex min-w-0 flex-1 flex-col bg-slate-50">
-      <header className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 bg-white px-6 py-4">
-        <div className="min-w-0">
-          <h2 className="truncate text-base font-semibold text-slate-950">
-            {conversation.subject ??
-              "Demande d’assistance"}
-          </h2>
+      <header className="border-b border-slate-200 bg-white px-6 py-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h2 className="truncate text-base font-semibold text-slate-950">
+              {conversation.subject ??
+                "Demande d’assistance"}
+            </h2>
 
-          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-500">
-            <span className="inline-flex items-center gap-1.5">
-              <UserRound className="size-3.5" />
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-500">
+              <span className="inline-flex items-center gap-1.5">
+                <UserRound className="size-3.5" />
 
-              {conversation.device.lastWindowsUser ??
-                conversation.openedByUsername}
-            </span>
-
-            <span className="inline-flex items-center gap-1.5">
-              <Monitor className="size-3.5" />
-
-              {conversation.device.computerName}
-            </span>
-
-            {conversation.device.domain && (
-              <span>
-                Domaine :{" "}
-                <span className="font-medium text-slate-700">
-                  {conversation.device.domain}
-                </span>
+                {device.lastWindowsUser ??
+                  conversation.openedByUsername}
               </span>
-            )}
+
+              <span className="inline-flex items-center gap-1.5">
+                <Monitor className="size-3.5" />
+
+                {device.computerName}
+              </span>
+
+              {device.domain && (
+                <span>
+                  Domaine :{" "}
+                  <span className="font-medium text-slate-700">
+                    {device.domain}
+                  </span>
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={
+                conversation.status
+              }
+              onChange={(event) =>
+                onChangeStatus(
+                  conversation.id,
+                  event.target
+                    .value as ConversationStatus,
+                )
+              }
+              className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+            >
+              {Object.entries(
+                statusLabels,
+              ).map(
+                ([value, label]) => (
+                  <option
+                    key={value}
+                    value={value}
+                  >
+                    {label}
+                  </option>
+                ),
+              )}
+            </select>
+
+            <button
+              type="button"
+              onClick={() =>
+                onCreateGlpiTicket(
+                  conversation.id,
+                )
+              }
+              disabled={
+                conversation.status ===
+                  "CLOSED" ||
+                Boolean(
+                  conversation.glpiTicketId,
+                )
+              }
+              className="inline-flex h-9 items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 text-sm font-medium text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <TicketPlus className="size-4" />
+
+              {conversation.glpiTicketId
+                ? `GLPI n°${conversation.glpiTicketId}`
+                : "Créer GLPI"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                const confirmed =
+                  window.confirm(
+                    "Supprimer définitivement cette conversation et tous ses messages ?",
+                  );
+
+                if (confirmed) {
+                  onDeleteConversation(
+                    conversation.id,
+                  );
+                }
+              }}
+              className="inline-flex h-9 items-center gap-2 rounded-lg border border-red-200 bg-white px-3 text-sm font-medium text-red-600 transition hover:bg-red-50"
+            >
+              <Trash2 className="size-4" />
+
+              Supprimer
+            </button>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={conversation.status}
-            onChange={(event) =>
-              onChangeStatus(
-                conversation.id,
-                event.target
-                  .value as ConversationStatus,
-              )
-            }
-            className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
-          >
-            {Object.entries(statusLabels).map(
-              ([value, label]) => (
-                <option
-                  key={value}
-                  value={value}
-                >
-                  {label}
-                </option>
-              ),
-            )}
-          </select>
+        <div className="mt-4 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="min-w-0">
+            <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              <Cpu className="size-3.5" />
+              Système
+            </p>
 
-          <button
-            type="button"
-            onClick={() =>
-              onCreateGlpiTicket(
-                conversation.id,
-              )
-            }
-            className="inline-flex h-9 items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 text-sm font-medium text-blue-700 transition hover:bg-blue-100"
-          >
-            <TicketPlus className="size-4" />
+            <p className="mt-1 truncate text-xs font-medium text-slate-700">
+              {systemLabel ||
+                "Non renseigné"}
+            </p>
+          </div>
 
-            Créer GLPI
-          </button>
+          <div className="min-w-0">
+            <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              <Network className="size-3.5" />
+              Adresse IP
+            </p>
 
-          <button
-            type="button"
-            onClick={() => {
-              const confirmed =
-                window.confirm(
-                  "Supprimer définitivement cette conversation et tous ses messages ?",
-                );
+            <p className="mt-1 truncate text-xs font-medium text-slate-700">
+              {device.ipAddress ??
+                "Non renseignée"}
+            </p>
+          </div>
 
-              if (confirmed) {
-                onDeleteConversation(
-                  conversation.id,
-                );
-              }
-            }}
-            className="inline-flex h-9 items-center gap-2 rounded-lg border border-red-200 bg-white px-3 text-sm font-medium text-red-600 transition hover:bg-red-50"
-          >
-            <Trash2 className="size-4" />
+          <div className="min-w-0">
+            <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              <Monitor className="size-3.5" />
+              Matériel
+            </p>
 
-            Supprimer
-          </button>
+            <p className="mt-1 truncate text-xs font-medium text-slate-700">
+              {hardwareLabel ||
+                "Non renseigné"}
+            </p>
+          </div>
+
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              Numéro de série
+            </p>
+
+            <p className="mt-1 truncate text-xs font-medium text-slate-700">
+              {device.serialNumber ??
+                "Non renseigné"}
+            </p>
+          </div>
         </div>
       </header>
 
@@ -202,10 +304,11 @@ export function ChatPanel({
             </span>
           </div>
 
-          {conversation.messages.length ===
-            0 && (
+          {conversation.messages
+            .length === 0 && (
             <p className="py-10 text-center text-sm text-slate-400">
-              Aucun message pour le moment.
+              Aucun message pour le
+              moment.
             </p>
           )}
 
@@ -254,7 +357,9 @@ export function ChatPanel({
                             : "text-slate-500"
                         }`}
                       >
-                        {message.senderLabel}
+                        {
+                          message.senderLabel
+                        }
                       </span>
 
                       <span
@@ -295,16 +400,20 @@ export function ChatPanel({
           <textarea
             value={content}
             onChange={(event) =>
-              setContent(event.target.value)
+              setContent(
+                event.target.value,
+              )
             }
             placeholder={
-              conversation.status === "CLOSED"
+              conversation.status ===
+              "CLOSED"
                 ? "Cette conversation est fermée."
                 : "Écrire une réponse..."
             }
             rows={2}
             disabled={
-              conversation.status === "CLOSED"
+              conversation.status ===
+              "CLOSED"
             }
             className="min-h-12 flex-1 resize-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
           />
@@ -313,7 +422,8 @@ export function ChatPanel({
             type="submit"
             disabled={
               !content.trim() ||
-              conversation.status === "CLOSED"
+              conversation.status ===
+                "CLOSED"
             }
             className="inline-flex h-12 items-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
           >

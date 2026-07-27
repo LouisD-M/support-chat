@@ -1,9 +1,11 @@
 "use client";
 
 import { ChatPanel } from "./chat-panel";
+
 import {
   ConversationSidebar,
 } from "./conversation-sidebar";
+
 import {
   DashboardError,
 } from "./dashboard-error";
@@ -27,12 +29,14 @@ export function AdminDashboard() {
     conversations,
     selectedConversation,
     selectedConversationId,
+    unreadByConversation,
+    totalUnread,
     isLoading,
     isSending,
     error,
 
     setError,
-    setSelectedConversationId,
+    selectConversation,
 
     sendMessage,
     changeStatus,
@@ -65,13 +69,23 @@ export function AdminDashboard() {
 
       <section className="mx-auto flex h-[calc(100vh-2rem)] max-w-7xl overflow-hidden rounded-2xl bg-white shadow-lg ring-1 ring-slate-200">
         <ConversationSidebar
-          conversations={conversations}
+          conversations={
+            conversations
+          }
           selectedConversationId={
             selectedConversationId
           }
-          isLoading={isLoading}
+          unreadByConversation={
+            unreadByConversation
+          }
+          totalUnread={
+            totalUnread
+          }
+          isLoading={
+            isLoading
+          }
           onSelectConversation={
-            setSelectedConversationId
+            selectConversation
           }
           onLogout={() => {
             void logout();
@@ -82,9 +96,13 @@ export function AdminDashboard() {
           conversation={
             selectedConversation
           }
-         // isSending={isSending}
-          onSendMessage={sendMessage}
-          onChangeStatus={changeStatus}
+          // isSending={isSending}
+          onSendMessage={
+            sendMessage
+          }
+          onChangeStatus={
+            changeStatus
+          }
           onCreateGlpiTicket={
             createGlpiTicket
           }

@@ -9,15 +9,19 @@ import type {
 type ConversationSidebarProps = {
   conversations: Conversation[];
   selectedConversationId: string | null;
+  unreadByConversation: Record<string, number>;
+  totalUnread: number;
   isLoading: boolean;
-  onSelectConversation:
-    (conversationId: string) => void;
+  onSelectConversation: (
+    conversationId: string,
+  ) => void;
   onLogout: () => void;
 };
-
 export function ConversationSidebar({
   conversations,
   selectedConversationId,
+  unreadByConversation,
+  totalUnread,
   isLoading,
   onSelectConversation,
   onLogout,
@@ -29,12 +33,20 @@ export function ConversationSidebar({
           Support informatique
         </h1>
 
-        <p className="mt-1 text-sm text-slate-500">
-          {conversations.length} conversation
-          {conversations.length > 1
-            ? "s"
-            : ""}
-        </p>
+<div className="mt-1 flex items-center gap-2">
+  <p className="text-sm text-slate-500">
+    {conversations.length} conversation
+    {conversations.length > 1
+      ? "s"
+      : ""}
+  </p>
+
+  {totalUnread > 0 && (
+    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-600 px-1.5 text-xs font-semibold text-white">
+      {totalUnread}
+    </span>
+  )}
+</div>
 
         <button
           type="button"
@@ -69,19 +81,24 @@ export function ConversationSidebar({
 
         {conversations.map(
           (conversation) => (
-            <ConversationListItem
-              key={conversation.id}
-              conversation={conversation}
-              isSelected={
-                conversation.id ===
-                selectedConversationId
-              }
-              onSelect={() =>
-                onSelectConversation(
-                  conversation.id,
-                )
-              }
-            />
+<ConversationListItem
+  key={conversation.id}
+  conversation={conversation}
+  isSelected={
+    conversation.id ===
+    selectedConversationId
+  }
+  unreadCount={
+    unreadByConversation[
+      conversation.id
+    ] ?? 0
+  }
+  onSelect={() =>
+    onSelectConversation(
+      conversation.id,
+    )
+  }
+/>
           ),
         )}
       </div>

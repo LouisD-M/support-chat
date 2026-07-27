@@ -8,6 +8,11 @@ import {
 } from "react";
 
 import {
+  io,
+  type Socket,
+} from "socket.io-client";
+
+import {
   createConversationGlpiTicket,
   fetchConversations,
   removeConversation,
@@ -18,11 +23,35 @@ import {
 import type {
   Conversation,
   ConversationStatus,
+  Message,
 } from "@/types/conversation";
 
 type UseConversationsOptions = {
   enabled: boolean;
 };
+
+type DeletedConversationPayload = {
+  conversationId: string;
+};
+
+type UnreadConversations = Record<
+  string,
+  number
+>;
+
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ??
+  "http://localhost:7000";
+
+function sortConversations(
+  conversations: Conversation[],
+): Conversation[] {
+  return [...conversations].sort(
+    (first, second) =>
+      new Date(second.updatedAt).getTime() -
+      new Date(first.updatedAt).getTime(),
+  );
+}
 
 export function useConversations({
   enabled,
@@ -36,6 +65,11 @@ export function useConversations({
     selectedConversationId,
     setSelectedConversationId,
   ] = useState<string | null>(null);
+
+  const [
+    unreadByConversation,
+    setUnreadByConversation,
+  ] = useState<UnreadConversations>({});
 
   const [isLoading, setIsLoading] =
     useState(true);
@@ -59,30 +93,42 @@ export function useConversations({
     ],
   );
 
+  const totalUnread = useMemo(
+    () =>
+      Object.values(
+        unreadByConversation,
+      ).reduce(
+        (total, count) =>
+          total + count,
+        0,
+      ),
+    [unreadByConversation],
+  );
+
   const loadConversations =
     useCallback(async () => {
       try {
         const data =
           await fetchConversations();
 
-        setConversations(data);
-
-        setSelectedConversationId(
-          (currentId) => {
-            const currentStillExists =
-              data.some(
-                (conversation) =>
-                  conversation.id ===
-                  currentId,
-              );
-
-            if (currentStillExists) {
-              return currentId;
-            }
-
-            return data[0]?.id ?? null;
-          },
+        setConversations(
+          sortConversations(data),
         );
+            setSelectedConversationId(
+            (currentId) => {
+                const currentStillExists =
+                data.some(
+                    (conversation) =>
+                    conversation.id === currentId,
+                );
+
+                if (currentStillExists) {
+                return currentId;
+                }
+
+                return data[0]?.id ?? null;
+            },
+            );
 
         setError(null);
       } catch (loadingError) {
@@ -106,7 +152,7 @@ export function useConversations({
     const intervalId =
       window.setInterval(() => {
         void loadConversations();
-      }, 2500);
+      }, 30_000);
 
     return () => {
       window.clearInterval(intervalId);
@@ -115,6 +161,289 @@ export function useConversations({
     enabled,
     loadConversations,
   ]);
+
+  useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
+    const socket: Socket = io(
+      `${API_URL}/support`,
+      {
+        withCredentials: true,
+        transports: [
+          "websocket",
+          "polling",
+        ],
+      },
+    );
+
+    function handleConversationCreated(
+      conversation: Conversation,
+    ): void {
+      setConversations(
+        (currentConversations) => {
+          const alreadyExists =
+            currentConversations.some(
+              (currentConversation) =>
+                currentConversation.id ===
+                conversation.id,
+            );
+
+          if (alreadyExists) {
+            return currentConversations;
+          }
+
+          return sortConversations([
+            conversation,
+            ...currentConversations,
+          ]);
+        },
+      );
+
+      setUnreadByConversation(
+        (currentUnread) => ({
+          ...currentUnread,
+          [conversation.id]:
+            currentUnread[
+              conversation.id
+            ] ?? 1,
+        }),
+      );
+    }
+
+    function handleMessageCreated(
+      message: Message,
+    ): void {
+      setConversations(
+        (currentConversations) =>
+          sortConversations(
+            currentConversations.map(
+              (conversation) => {
+                if (
+                  conversation.id !==
+                  message.conversationId
+                ) {
+                  return conversation;
+                }
+
+                const messageAlreadyExists =
+                  conversation.messages.some(
+                    (currentMessage) =>
+                      currentMessage.id ===
+                      message.id,
+                  );
+
+                if (messageAlreadyExists) {
+                  return conversation;
+                }
+
+                return {
+                  ...conversation,
+
+                  updatedAt:
+                    message.createdAt,
+
+                  messages: [
+                    ...conversation.messages,
+                    message,
+                  ],
+                };
+              },
+            ),
+          ),
+      );
+
+      if (
+        message.senderType !== "CLIENT"
+      ) {
+        return;
+      }
+
+        setSelectedConversationId(
+        (currentSelectedId) => {
+          if (
+            currentSelectedId ===
+            message.conversationId
+          ) {
+            return currentSelectedId;
+          }
+
+          setUnreadByConversation(
+            (currentUnread) => ({
+              ...currentUnread,
+
+              [message.conversationId]:
+                (currentUnread[
+                  message.conversationId
+                ] ?? 0) + 1,
+            }),
+          );
+
+          return currentSelectedId;
+        },
+      );
+    }
+
+    function handleConversationUpdated(
+      conversation: Conversation,
+    ): void {
+      setConversations(
+        (currentConversations) => {
+          const alreadyExists =
+            currentConversations.some(
+              (currentConversation) =>
+                currentConversation.id ===
+                conversation.id,
+            );
+
+          if (!alreadyExists) {
+            return sortConversations([
+              conversation,
+              ...currentConversations,
+            ]);
+          }
+
+          return sortConversations(
+            currentConversations.map(
+              (currentConversation) =>
+                currentConversation.id ===
+                conversation.id
+                  ? conversation
+                  : currentConversation,
+            ),
+          );
+        },
+      );
+    }
+
+    function handleConversationDeleted({
+      conversationId,
+    }: DeletedConversationPayload): void {
+      setConversations(
+        (currentConversations) =>
+          currentConversations.filter(
+            (conversation) =>
+              conversation.id !==
+              conversationId,
+          ),
+      );
+
+      setUnreadByConversation(
+        (currentUnread) => {
+          const nextUnread = {
+            ...currentUnread,
+          };
+
+          delete nextUnread[
+            conversationId
+          ];
+
+          return nextUnread;
+        },
+      );
+
+        setSelectedConversationId(
+        (currentSelectedId) =>
+            currentSelectedId === conversationId
+            ? null
+            : currentSelectedId,
+        );
+    }
+
+    function handleConnect(): void {
+      setError(null);
+    }
+
+    function handleConnectError(): void {
+      setError(
+        "Connexion temps réel indisponible. Actualisation de secours active.",
+      );
+    }
+
+    socket.on(
+      "connect",
+      handleConnect,
+    );
+
+    socket.on(
+      "connect_error",
+      handleConnectError,
+    );
+
+    socket.on(
+      "conversation:created",
+      handleConversationCreated,
+    );
+
+    socket.on(
+      "message:created",
+      handleMessageCreated,
+    );
+
+    socket.on(
+      "conversation:updated",
+      handleConversationUpdated,
+    );
+
+    socket.on(
+      "conversation:deleted",
+      handleConversationDeleted,
+    );
+
+    return () => {
+      socket.off(
+        "connect",
+        handleConnect,
+      );
+
+      socket.off(
+        "connect_error",
+        handleConnectError,
+      );
+
+      socket.off(
+        "conversation:created",
+        handleConversationCreated,
+      );
+
+      socket.off(
+        "message:created",
+        handleMessageCreated,
+      );
+
+      socket.off(
+        "conversation:updated",
+        handleConversationUpdated,
+      );
+
+      socket.off(
+        "conversation:deleted",
+        handleConversationDeleted,
+      );
+
+      socket.disconnect();
+    };
+  }, [enabled]);
+
+const selectConversation =
+  useCallback(
+    (
+      conversationId: string,
+    ): void => {
+      setSelectedConversationId(
+        conversationId,
+      );
+
+      setUnreadByConversation(
+        (currentUnread) => ({
+          ...currentUnread,
+          [conversationId]: 0,
+        }),
+      );
+    },
+    [],
+  );
 
   async function sendMessage(
     conversationId: string,
@@ -133,6 +462,13 @@ export function useConversations({
         content,
       );
 
+      /*
+       * Le WebSocket mettra normalement
+       * l’interface à jour.
+       *
+       * Ce chargement sert de sécurité
+       * en cas de problème temps réel.
+       */
       await loadConversations();
     } catch (sendingError) {
       setError(
@@ -179,6 +515,20 @@ export function useConversations({
 
       setSelectedConversationId(null);
 
+      setUnreadByConversation(
+        (currentUnread) => {
+          const nextUnread = {
+            ...currentUnread,
+          };
+
+          delete nextUnread[
+            conversationId
+          ];
+
+          return nextUnread;
+        },
+      );
+
       await loadConversations();
     } catch (deleteError) {
       setError(
@@ -213,12 +563,16 @@ export function useConversations({
     conversations,
     selectedConversation,
     selectedConversationId,
+
+    unreadByConversation,
+    totalUnread,
+
     isLoading,
     isSending,
     error,
 
     setError,
-    setSelectedConversationId,
+    selectConversation,
 
     sendMessage,
     changeStatus,
