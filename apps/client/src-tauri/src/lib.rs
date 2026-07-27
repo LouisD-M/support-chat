@@ -4,6 +4,12 @@ use std::{
     process::Command,
 };
 
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct DeviceIdentity {
@@ -20,13 +26,21 @@ struct DeviceIdentity {
 }
 
 fn run_powershell(command: &str) -> Option<String> {
-    let output = Command::new("powershell")
-        .args([
-            "-NoProfile",
-            "-NonInteractive",
-            "-Command",
-            command,
-        ])
+    let mut powershell = Command::new("powershell.exe");
+
+    powershell.args([
+        "-NoProfile",
+        "-NonInteractive",
+        "-WindowStyle",
+        "Hidden",
+        "-Command",
+        command,
+    ]);
+
+    #[cfg(target_os = "windows")]
+    powershell.creation_flags(CREATE_NO_WINDOW);
+
+    let output = powershell
         .output()
         .ok()?;
 
@@ -46,7 +60,6 @@ fn run_powershell(command: &str) -> Option<String> {
         Some(value)
     }
 }
-
 #[tauri::command]
 fn get_device_identity() -> DeviceIdentity {
     let os_name = run_powershell(

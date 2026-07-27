@@ -41,14 +41,22 @@ model AdminUser {
 }
 
 model Device {
-  id              String         @id @default(cuid())
-  installationId  String         @unique
+  id              String   @id @default(cuid())
+  installationId  String   @unique
   computerName    String
-  domain           String?
+  domain          String?
   lastWindowsUser String?
-  lastSeenAt      DateTime       @default(now())
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+
+  osName          String?
+  osVersion       String?
+  ipAddress       String?
+  manufacturer    String?
+  model           String?
+  serialNumber    String?
+
+  lastSeenAt      DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   conversations   Conversation[]
 }
