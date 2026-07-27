@@ -25,8 +25,13 @@ struct DeviceIdentity {
     serial_number: Option<String>,
 }
 
-fn run_powershell(command: &str) -> Option<String> {
-    let mut powershell = Command::new("powershell.exe");
+fn run_powershell(
+    command: &str,
+) -> Option<String> {
+    let mut powershell =
+        Command::new(
+            "powershell.exe",
+        );
 
     powershell.args([
         "-NoProfile",
@@ -38,21 +43,23 @@ fn run_powershell(command: &str) -> Option<String> {
     ]);
 
     #[cfg(target_os = "windows")]
-    powershell.creation_flags(CREATE_NO_WINDOW);
+    powershell.creation_flags(
+        CREATE_NO_WINDOW,
+    );
 
-    let output = powershell
-        .output()
-        .ok()?;
+    let output =
+        powershell.output().ok()?;
 
     if !output.status.success() {
         return None;
     }
 
-    let value = String::from_utf8_lossy(
-        &output.stdout,
-    )
-    .trim()
-    .to_string();
+    let value =
+        String::from_utf8_lossy(
+            &output.stdout,
+        )
+        .trim()
+        .to_string();
 
     if value.is_empty() {
         None
@@ -60,57 +67,70 @@ fn run_powershell(command: &str) -> Option<String> {
         Some(value)
     }
 }
+
 #[tauri::command]
-fn get_device_identity() -> DeviceIdentity {
-    let os_name = run_powershell(
-        "(Get-CimInstance Win32_OperatingSystem).Caption",
-    );
+fn get_device_identity()
+    -> DeviceIdentity
+{
+    let os_name =
+        run_powershell(
+            "(Get-CimInstance Win32_OperatingSystem).Caption",
+        );
 
-    let os_version = run_powershell(
-        "(Get-CimInstance Win32_OperatingSystem).Version",
-    );
+    let os_version =
+        run_powershell(
+            "(Get-CimInstance Win32_OperatingSystem).Version",
+        );
 
-    let manufacturer = run_powershell(
-        "(Get-CimInstance Win32_ComputerSystem).Manufacturer",
-    );
+    let manufacturer =
+        run_powershell(
+            "(Get-CimInstance Win32_ComputerSystem).Manufacturer",
+        );
 
-    let model = run_powershell(
-        "(Get-CimInstance Win32_ComputerSystem).Model",
-    );
+    let model =
+        run_powershell(
+            "(Get-CimInstance Win32_ComputerSystem).Model",
+        );
 
-    let serial_number = run_powershell(
-        "(Get-CimInstance Win32_BIOS).SerialNumber",
-    );
+    let serial_number =
+        run_powershell(
+            "(Get-CimInstance Win32_BIOS).SerialNumber",
+        );
 
-    let ip_address = run_powershell(
-        r#"
-        Get-NetIPAddress -AddressFamily IPv4 |
-        Where-Object {
-            $_.IPAddress -ne "127.0.0.1" -and
-            $_.AddressState -eq "Preferred" -and
-            $_.InterfaceAlias -notmatch "Loopback|Bluetooth|vEthernet"
-        } |
-        Select-Object -ExpandProperty IPAddress -First 1
-        "#,
-    );
+    let ip_address =
+        run_powershell(
+            r#"
+            Get-NetIPAddress -AddressFamily IPv4 |
+            Where-Object {
+                $_.IPAddress -ne "127.0.0.1" -and
+                $_.AddressState -eq "Preferred" -and
+                $_.InterfaceAlias -notmatch "Loopback|Bluetooth|vEthernet"
+            } |
+            Select-Object -ExpandProperty IPAddress -First 1
+            "#,
+        );
 
     DeviceIdentity {
-        computer_name: env::var(
-            "COMPUTERNAME",
-        )
-        .unwrap_or_else(|_| {
-            "POSTE-INCONNU".to_string()
-        }),
+        computer_name:
+            env::var(
+                "COMPUTERNAME",
+            )
+            .unwrap_or_else(|_| {
+                "POSTE-INCONNU"
+                    .to_string()
+            }),
 
-        domain: env::var(
-            "USERDOMAIN",
-        )
-        .ok(),
+        domain:
+            env::var(
+                "USERDOMAIN",
+            )
+            .ok(),
 
-        last_windows_user: env::var(
-            "USERNAME",
-        )
-        .ok(),
+        last_windows_user:
+            env::var(
+                "USERNAME",
+            )
+            .ok(),
 
         os_name,
         os_version,
@@ -125,17 +145,22 @@ fn get_device_identity() -> DeviceIdentity {
     mobile,
     tauri::mobile_entry_point
 )]
-#[cfg_attr(
-    mobile,
-    tauri::mobile_entry_point
-)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(
             tauri_plugin_notification::init(),
         )
+        .plugin(
+            tauri_plugin_updater::Builder::new()
+                .build(),
+        )
+        .plugin(
+            tauri_plugin_process::init(),
+        )
         .setup(|app| {
-            if cfg!(debug_assertions) {
+            if cfg!(
+                debug_assertions
+            ) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
                         .level(

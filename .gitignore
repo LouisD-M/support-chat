@@ -12,6 +12,8 @@ target/
 
 # Tauri / Rust
 apps/client/src-tauri/target/
+apps/client/support-chat.key
+apps/client/support-chat.key.pub
 
 # Variables d'environnement
 .env

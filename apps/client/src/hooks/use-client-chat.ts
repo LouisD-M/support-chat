@@ -2,9 +2,14 @@
 
 import {
   useEffect,
+  useRef,
   useState,
 } from "react";
-
+import {
+  isPermissionGranted,
+  requestPermission,
+  sendNotification,
+} from "@tauri-apps/plugin-notification";
 import type {
   Conversation,
   Message,
@@ -67,10 +72,61 @@ export function useClientChat() {
   ] =
     useState<string | null>(null);
 
+  const notificationAudioRef =
+    useRef<HTMLAudioElement | null>(
+      null,
+    );
+
+  const knownMessageIdsRef =
+    useRef<Set<string>>(
+      new Set(),
+    );
+
+ useEffect(() => {
+  const audio = new Audio(
+    "./sounds/notification.mp3",
+  );
+
+  audio.volume = 0.5;
+  audio.preload = "auto";
+
+  audio.addEventListener(
+    "canplaythrough",
+    () => {
+      console.log(
+        "Son chargé correctement",
+      );
+    },
+  );
+
+  audio.addEventListener(
+    "error",
+    () => {
+      console.error(
+        "Erreur chargement audio",
+        audio.error,
+        audio.src,
+      );
+    },
+  );
+
+  audio.load();
+
+  notificationAudioRef.current =
+    audio;
+
+  return () => {
+    audio.pause();
+    notificationAudioRef.current =
+      null;
+  };
+}, []);
+
   useEffect(() => {
     let isCancelled = false;
 
-    async function getOrCreateConversation() {
+    async function getOrCreateConversation():
+      Promise<Conversation> {
       const identity =
         await getDeviceIdentity();
 
@@ -124,7 +180,8 @@ export function useClientChat() {
       return createdConversation;
     }
 
-    async function initializeChat() {
+    async function initializeChat():
+      Promise<void> {
       setIsLoading(true);
       setError(null);
 
@@ -135,11 +192,21 @@ export function useClientChat() {
         const loadedConversation =
           await bootstrapPromise;
 
-        if (!isCancelled) {
-          setConversation(
-            loadedConversation,
-          );
+        if (isCancelled) {
+          return;
         }
+
+        knownMessageIdsRef.current =
+          new Set(
+            loadedConversation.messages.map(
+              (message) =>
+                message.id,
+            ),
+          );
+
+        setConversation(
+          loadedConversation,
+        );
       } catch (
         initializationError
       ) {
@@ -190,6 +257,40 @@ export function useClientChat() {
             (
               updatedConversation,
             ) => {
+              const newTechnicianMessages =
+                updatedConversation.messages.filter(
+                  (message) =>
+                    message.senderType ===
+                      "TECHNICIAN" &&
+                    !knownMessageIdsRef.current.has(
+                      message.id,
+                    ),
+                );
+
+              for (
+                const message
+                of updatedConversation.messages
+              ) {
+                knownMessageIdsRef.current.add(
+                  message.id,
+                );
+              }
+
+if (
+  newTechnicianMessages.length > 0
+) {
+  playNotificationSound();
+
+  const latestMessage =
+    newTechnicianMessages[
+      newTechnicianMessages.length - 1
+    ];
+
+  void showDesktopNotification(
+    latestMessage,
+  );
+}
+
               setConversation(
                 updatedConversation,
               );
@@ -209,6 +310,60 @@ export function useClientChat() {
       );
     };
   }, [conversation?.id]);
+
+async function showDesktopNotification(
+  message: Message,
+): Promise<void> {
+  try {
+    let permissionGranted =
+      await isPermissionGranted();
+
+    if (!permissionGranted) {
+      const permission =
+        await requestPermission();
+
+      permissionGranted =
+        permission === "granted";
+    }
+
+    if (!permissionGranted) {
+      return;
+    }
+
+    sendNotification({
+      title: "Support informatique",
+      body:
+        message.content ||
+        "Vous avez reçu une nouvelle réponse.",
+    });
+  } catch (notificationError) {
+    console.warn(
+      "Notification Windows impossible :",
+      notificationError,
+    );
+  }
+}
+
+  function playNotificationSound():
+    void {
+    const audio =
+      notificationAudioRef.current;
+
+    if (!audio) {
+      return;
+    }
+
+    audio.currentTime = 0;
+
+    void audio.play().catch(
+      (audioError) => {
+        console.warn(
+          "Lecture du son bloquée :",
+          audioError,
+        );
+      },
+    );
+  }
 
   async function sendMessage():
     Promise<Message | null> {
@@ -242,6 +397,15 @@ export function useClientChat() {
           conversation.id,
         );
 
+      for (
+        const currentMessage
+        of updatedConversation.messages
+      ) {
+        knownMessageIdsRef.current.add(
+          currentMessage.id,
+        );
+      }
+
       setConversation(
         updatedConversation,
       );
@@ -249,8 +413,7 @@ export function useClientChat() {
       return message;
     } catch (sendingError) {
       setError(
-        sendingError
-          instanceof Error
+        sendingError instanceof Error
           ? sendingError.message
           : "Le message n’a pas pu être envoyé.",
       );
