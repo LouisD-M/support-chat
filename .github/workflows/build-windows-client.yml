@@ -1,6 +1,10 @@
 ﻿name: Publish Support Chat Desktop
 
 on:
+  push:
+    branches:
+      - main
+
   workflow_dispatch:
 
 jobs:
@@ -45,5 +49,4 @@ jobs:
 
           releaseDraft: false
           prerelease: false
-
           uploadPlainBinary: true
