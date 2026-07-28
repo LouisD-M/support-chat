@@ -30,23 +30,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build and publish desktop application
+      - name: Build Tauri desktop application
         uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
         with:
           projectPath: apps/client
-
-          tagName: support-chat-v__VERSION__
-          releaseName: "Support Chat v__VERSION__"
-
-          releaseBody: |
-            Version portable de Support Chat.
-
-            Téléchargez le fichier app.exe et lancez-le directement.
-            Aucune installation n’est nécessaire.
-
-          releaseDraft: false
-          prerelease: false
           uploadPlainBinary: true
+
+      - name: Upload portable executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: support-chat-portable
+          path: apps/client/src-tauri/target/release/app.exe
+          if-no-files-found: error
